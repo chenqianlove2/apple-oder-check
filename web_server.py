@@ -20,75 +20,461 @@ QUERY_HTML = '''
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>批量查询 - 苹果订单监控</title>
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            padding: 20px;
+        :root {
+            --primary: #0071e3;
+            --primary-dark: #0055b3;
+            --success: #34c759;
+            --warning: #ff9500;
+            --danger: #ff3b30;
+            --bg-primary: #f5f5f7;
+            --bg-secondary: #ffffff;
+            --text-primary: #1d1d1f;
+            --text-secondary: #6e6e73;
+            --border: #d2d2d7;
+            --shadow: rgba(0, 0, 0, 0.08);
         }
-        .container { max-width: 1400px; margin: 0 auto; }
-        .header { text-align: center; color: white; margin-bottom: 30px; }
-        .header h1 { font-size: 2.5em; margin-bottom: 10px; }
-        .nav { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
-        .nav-btn { padding: 10px 20px; background: rgba(255,255,255,0.2); color: white; border: none; border-radius: 8px; cursor: pointer; text-decoration: none; font-size: 14px; }
-        .nav-btn:hover { background: rgba(255,255,255,0.3); }
-        .nav-btn.active { background: white; color: #667eea; }
-        .card { background: white; border-radius: 12px; padding: 25px; margin-bottom: 20px; box-shadow: 0 10px 40px rgba(0,0,0,0.1); }
-        .card-title { font-size: 1.2em; font-weight: 600; margin-bottom: 15px; display: flex; align-items: center; gap: 8px; }
-        .input-area { width: 100%; min-height: 120px; padding: 15px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 14px; resize: vertical; }
-        .input-area:focus { outline: none; border-color: #667eea; }
-        .settings-row { display: flex; gap: 20px; margin-top: 15px; align-items: center; flex-wrap: wrap; }
-        .setting-item { display: flex; align-items: center; gap: 8px; }
-        .setting-item label { font-size: 14px; color: #666; }
-        .setting-item input { width: 60px; padding: 6px 10px; border: 2px solid #e0e0e0; border-radius: 6px; }
-        .btn-group { display: flex; gap: 10px; margin-top: 15px; flex-wrap: wrap; }
-        .btn { padding: 12px 24px; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; }
-        .btn-primary { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; }
-        .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4); }
-        .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
-        .btn-secondary { background: #f0f0f0; color: #333; }
-        .btn-success { background: #28a745; color: white; }
-        .progress-bar { width: 100%; height: 8px; background: #e0e0e0; border-radius: 4px; overflow: hidden; margin: 15px 0; }
-        .progress-fill { height: 100%; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); transition: width 0.3s; }
-        .status { color: #666; font-size: 14px; display: flex; justify-content: space-between; align-items: center; }
-        .speed-info { font-size: 12px; color: #999; }
-        table { width: 100%; border-collapse: collapse; font-size: 14px; }
-        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #e0e0e0; }
-        th { background: #f8f9fa; font-weight: 600; position: sticky; top: 0; }
-        tr:hover { background: #f8f9fa; }
-        .status-badge { padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; }
-        .status-PLACED { background: #e2e3e5; color: #383d41; }
-        .status-PROCESSING { background: #fff3cd; color: #856404; }
-        .status-PREPARED_FOR_SHIPMENT { background: #fff3cd; color: #856404; }
-        .status-SHIPPED { background: #d1ecf1; color: #0c5460; }
-        .status-DELIVERED { background: #d4edda; color: #155724; }
-        .status-CANCELED { background: #f8d7da; color: #721c24; }
-        .status-error { background: #f8d7da; color: #721c24; }
-        .link-cell { max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .link-cell a { color: #667eea; text-decoration: none; }
-        .link-cell a:hover { text-decoration: underline; }
-        .stats { display: flex; gap: 15px; margin-bottom: 15px; flex-wrap: wrap; }
-        .stat-item { background: #f8f9fa; padding: 10px 20px; border-radius: 8px; font-size: 14px; }
-        .stat-item strong { color: #667eea; font-size: 1.2em; }
+        
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, sans-serif;
+            background: var(--bg-primary);
+            min-height: 100vh;
+            color: var(--text-primary);
+            line-height: 1.6;
+        }
+        
+        /* 顶部导航栏 */
+        .top-nav {
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: saturate(180%) blur(20px);
+            border-bottom: 1px solid var(--border);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            padding: 12px 0;
+        }
+        
+        .nav-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 0 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .logo {
+            font-size: 20px;
+            font-weight: 600;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .nav-links {
+            display: flex;
+            gap: 8px;
+        }
+        
+        .nav-btn {
+            padding: 8px 16px;
+            border-radius: 20px;
+            text-decoration: none;
+            color: var(--text-secondary);
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .nav-btn:hover {
+            background: var(--bg-primary);
+            color: var(--text-primary);
+        }
+        
+        .nav-btn.active {
+            background: var(--primary);
+            color: white;
+        }
+        
+        /* 主容器 */
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 40px 24px;
+        }
+        
+        /* 页头 */
+        .page-header {
+            margin-bottom: 40px;
+        }
+        
+        .page-title {
+            font-size: 40px;
+            font-weight: 700;
+            margin-bottom: 8px;
+            letter-spacing: -0.5px;
+        }
+        
+        .page-subtitle {
+            font-size: 18px;
+            color: var(--text-secondary);
+            font-weight: 400;
+        }
+        
+        /* 卡片 */
+        .card {
+            background: var(--bg-secondary);
+            border-radius: 18px;
+            padding: 36px;
+            margin-bottom: 32px;
+            box-shadow: 0 2px 16px var(--shadow);
+            border: 1px solid var(--border);
+            transition: all 0.3s;
+        }
+        
+        .card:hover {
+            box-shadow: 0 4px 24px var(--shadow);
+        }
+        
+        .card-title {
+            font-size: 24px;
+            font-weight: 600;
+            margin-bottom: 24px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        /* 输入框 */
+        .input-area {
+            width: 100%;
+            min-height: 140px;
+            padding: 16px;
+            border: 2px solid var(--border);
+            border-radius: 12px;
+            font-size: 15px;
+            font-family: inherit;
+            resize: vertical;
+            transition: all 0.2s;
+        }
+        
+        .input-area:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 4px rgba(0, 113, 227, 0.1);
+        }
+        
+        /* 设置行 */
+        .settings-row {
+            display: flex;
+            gap: 24px;
+            margin-top: 20px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        
+        .setting-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .setting-item label {
+            font-size: 15px;
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+        
+        .setting-item input {
+            width: 70px;
+            padding: 8px 12px;
+            border: 2px solid var(--border);
+            border-radius: 8px;
+            font-size: 15px;
+            text-align: center;
+            transition: all 0.2s;
+        }
+        
+        .setting-item input:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+        
+        /* 按钮组 */
+        .btn-group {
+            display: flex;
+            gap: 12px;
+            margin-top: 20px;
+            flex-wrap: wrap;
+        }
+        
+        .btn {
+            padding: 12px 28px;
+            border: none;
+            border-radius: 12px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+        }
+        
+        .btn-primary:hover:not(:disabled) {
+            background: var(--primary-dark);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(0, 113, 227, 0.3);
+        }
+        
+        .btn-primary:active:not(:disabled) {
+            transform: translateY(0);
+        }
+        
+        .btn-primary:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .btn-secondary {
+            background: var(--bg-primary);
+            color: var(--text-primary);
+        }
+        
+        .btn-secondary:hover {
+            background: var(--border);
+        }
+        
+        .btn-success {
+            background: var(--success);
+            color: white;
+        }
+        
+        /* 进度条 */
+        .progress-bar {
+            width: 100%;
+            height: 6px;
+            background: var(--bg-primary);
+            border-radius: 3px;
+            overflow: hidden;
+            margin: 20px 0;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--primary) 0%, var(--success) 100%);
+            transition: width 0.3s ease;
+            border-radius: 3px;
+        }
+        
+        /* 状态信息 */
+        .status {
+            color: var(--text-secondary);
+            font-size: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 0;
+        }
+        
+        .speed-info {
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+        
+        /* 表格 */
+        .table-wrapper {
+            overflow-x: auto;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+        }
+        
+        th, td {
+            padding: 16px;
+            text-align: left;
+        }
+        
+        th {
+            background: var(--bg-primary);
+            font-weight: 600;
+            color: var(--text-secondary);
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            position: sticky;
+            top: 0;
+        }
+        
+        tr {
+            border-bottom: 1px solid var(--border);
+            transition: background 0.2s;
+        }
+        
+        tr:last-child {
+            border-bottom: none;
+        }
+        
+        tr:hover {
+            background: var(--bg-primary);
+        }
+        
+        /* 状态徽章 */
+        .status-badge {
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            display: inline-block;
+        }
+        
+        .status-PLACED { background: #e8e8ed; color: #1d1d1f; }
+        .status-PROCESSING { background: #fff4e6; color: #b45309; }
+        .status-PREPARED_FOR_SHIPMENT { background: #fff4e6; color: #b45309; }
+        .status-SHIPPED { background: #e6f2ff; color: #0055b3; }
+        .status-DELIVERED { background: #e6f7ec; color: #1b6e3d; }
+        .status-CANCELED { background: #ffe6e6; color: #c41e3a; }
+        .status-error { background: #ffe6e6; color: #c41e3a; }
+        
+        /* 链接 */
+        .link-cell {
+            max-width: 220px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        
+        .link-cell a {
+            color: var(--primary);
+            text-decoration: none;
+            transition: color 0.2s;
+        }
+        
+        .link-cell a:hover {
+            color: var(--primary-dark);
+            text-decoration: underline;
+        }
+        
+        /* 统计卡片 */
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+        
+        .stat-item {
+            background: var(--bg-secondary);
+            padding: 20px;
+            border-radius: 16px;
+            text-align: center;
+            border: 1px solid var(--border);
+            transition: all 0.3s;
+        }
+        
+        .stat-item:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 16px var(--shadow);
+        }
+        
+        .stat-value {
+            font-size: 32px;
+            font-weight: 700;
+            color: var(--primary);
+            margin-bottom: 4px;
+        }
+        
+        .stat-label {
+            font-size: 13px;
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+        
+        /* 响应式 */
         @media (max-width: 768px) {
-            .header h1 { font-size: 1.8em; }
-            .btn-group { justify-content: center; }
-            .btn { flex: 1; min-width: 120px; }
+            .container {
+                padding: 24px 16px;
+            }
+            
+            .page-title {
+                font-size: 32px;
+            }
+            
+            .card {
+                padding: 24px;
+            }
+            
+            .btn-group {
+                flex-direction: column;
+            }
+            
+            .btn {
+                width: 100%;
+                justify-content: center;
+            }
+            
+            .nav-links {
+                gap: 4px;
+            }
+            
+            .nav-btn {
+                padding: 6px 12px;
+                font-size: 13px;
+            }
+        }
+        
+        /* 动画 */
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .card {
+            animation: fadeIn 0.4s ease;
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <div class="header">
-            <h1>🔍 批量查询订单</h1>
-            <p>一次性查询多个订单状态</p>
+    <!-- 顶部导航 -->
+    <nav class="top-nav">
+        <div class="nav-container">
+            <div class="logo">
+                🍎 Apple Order Monitor
+            </div>
+            <div class="nav-links">
+                <a href="/" class="nav-btn">📊 监控面板</a>
+                <a href="/query" class="nav-btn active">🔍 批量查询</a>
+                <a href="/settings" class="nav-btn">⚙️ 设置</a>
+            </div>
         </div>
-        
-        <div class="nav">
-            <a href="/" class="nav-btn">📊 监控面板</a>
-            <a href="/query" class="nav-btn active">🔍 批量查询</a>
-            <a href="/settings" class="nav-btn">⚙️ 设置</a>
+    </nav>
+    
+    <!-- 主内容 -->
+    <div class="container">
+        <div class="page-header">
+            <h1 class="page-title">批量查询订单</h1>
+            <p class="page-subtitle">一次性查询多个订单的最新状态</p>
         </div>
         
         <div class="card">
@@ -455,211 +841,402 @@ MONITOR_HTML = '''
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>苹果订单监控管理</title>
+    <title>监控面板 - Apple Order Monitor</title>
     <style>
+        :root {
+            --primary: #0071e3;
+            --primary-dark: #0055b3;
+            --success: #34c759;
+            --warning: #ff9500;
+            --danger: #ff3b30;
+            --bg-primary: #f5f5f7;
+            --bg-secondary: #ffffff;
+            --text-primary: #1d1d1f;
+            --text-secondary: #6e6e73;
+            --border: #d2d2d7;
+            --shadow: rgba(0, 0, 0, 0.08);
+        }
+        
         * { margin: 0; padding: 0; box-sizing: border-box; }
+        
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, sans-serif;
+            background: var(--bg-primary);
             min-height: 100vh;
-            padding: 20px;
+            color: var(--text-primary);
+            line-height: 1.6;
         }
-        .container { max-width: 1400px; margin: 0 auto; }
-        .header {
-            text-align: center;
-            color: white;
-            margin-bottom: 30px;
-        }
-        .header h1 { font-size: 2.5em; margin-bottom: 10px; }
         
-        .nav {
+        /* 顶部导航栏 */
+        .top-nav {
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: saturate(180%) blur(20px);
+            border-bottom: 1px solid var(--border);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            padding: 12px 0;
+        }
+        
+        .nav-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 0 24px;
             display: flex;
-            gap: 10px;
-            margin-bottom: 20px;
-            flex-wrap: wrap;
+            justify-content: space-between;
+            align-items: center;
         }
-        .nav-btn {
-            padding: 10px 20px;
-            background: rgba(255,255,255,0.2);
-            color: white;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            text-decoration: none;
-            font-size: 14px;
-        }
-        .nav-btn:hover { background: rgba(255,255,255,0.3); }
-        .nav-btn.active { background: white; color: #667eea; }
         
-        .card {
-            background: white;
-            border-radius: 12px;
-            padding: 25px;
-            margin-bottom: 20px;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
-        }
-        .card-title {
-            font-size: 1.2em;
+        .logo {
+            font-size: 20px;
             font-weight: 600;
-            margin-bottom: 15px;
+            color: var(--text-primary);
             display: flex;
             align-items: center;
             gap: 8px;
         }
         
+        .nav-links {
+            display: flex;
+            gap: 8px;
+        }
+        
+        .nav-btn {
+            padding: 8px 16px;
+            border-radius: 20px;
+            text-decoration: none;
+            color: var(--text-secondary);
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .nav-btn:hover {
+            background: var(--bg-primary);
+            color: var(--text-primary);
+        }
+        
+        .nav-btn.active {
+            background: var(--primary);
+            color: white;
+        }
+        
+        /* 主容器 */
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 40px 24px;
+        }
+        
+        /* 页头 */
+        .page-header {
+            margin-bottom: 40px;
+        }
+        
+        .page-title {
+            font-size: 40px;
+            font-weight: 700;
+            margin-bottom: 8px;
+            letter-spacing: -0.5px;
+        }
+        
+        .page-subtitle {
+            font-size: 18px;
+            color: var(--text-secondary);
+            font-weight: 400;
+        }
+        
+        /* 卡片 */
+        .card {
+            background: var(--bg-secondary);
+            border-radius: 18px;
+            padding: 36px;
+            margin-bottom: 32px;
+            box-shadow: 0 2px 16px var(--shadow);
+            border: 1px solid var(--border);
+            transition: all 0.3s;
+        }
+        
+        .card:hover {
+            box-shadow: 0 4px 24px var(--shadow);
+        }
+        
+        .card-title {
+            font-size: 24px;
+            font-weight: 600;
+            margin-bottom: 24px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
         /* 状态面板 */
         .status-panel {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-            gap: 15px;
-            margin-bottom: 20px;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 32px;
         }
+        
         .status-item {
-            background: #f8f9fa;
-            padding: 15px;
-            border-radius: 10px;
+            background: var(--bg-primary);
+            padding: 24px;
+            border-radius: 16px;
             text-align: center;
+            border: 1px solid var(--border);
+            transition: all 0.3s;
         }
+        
+        .status-item:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 16px var(--shadow);
+        }
+        
         .status-item .value {
-            font-size: 2em;
-            font-weight: bold;
-            color: #667eea;
+            font-size: 36px;
+            font-weight: 700;
+            margin-bottom: 8px;
         }
+        
         .status-item .label {
-            color: #666;
-            font-size: 14px;
-            margin-top: 5px;
+            color: var(--text-secondary);
+            font-size: 13px;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
-        .status-item.running .value { color: #28a745; }
-        .status-item.stopped .value { color: #dc3545; }
+        
+        .status-item.running .value { color: var(--success); }
+        .status-item.stopped .value { color: var(--danger); }
+        .status-item .value { color: var(--primary); }
+        
         .countdown-item .value { 
-            color: #667eea; 
-            font-family: 'Courier New', monospace;
-            font-size: 1.6em;
+            font-family: 'SF Mono', 'Monaco', 'Courier New', monospace;
+            font-size: 28px;
         }
         
         /* 状态统计筛选 */
         .status-stats {
-            border-top: 2px solid #f0f0f0;
-            padding-top: 15px;
+            border-top: 1px solid var(--border);
+            padding-top: 28px;
+            margin-top: 28px;
         }
+        
         .stats-filter {
             display: flex;
             flex-wrap: wrap;
-            gap: 10px;
+            gap: 16px;
+            row-gap: 14px;
         }
+        
         .filter-btn {
-            padding: 8px 16px;
-            border: 2px solid #e0e0e0;
-            border-radius: 20px;
-            background: white;
+            padding: 12px 24px;
+            border: 2px solid var(--border);
+            border-radius: 24px;
+            background: var(--bg-secondary);
             cursor: pointer;
-            font-size: 13px;
-            transition: all 0.3s;
+            font-size: 15px;
+            font-weight: 500;
+            transition: all 0.2s;
+            color: var(--text-primary);
+            min-width: 120px;
+            text-align: center;
         }
+        
         .filter-btn:hover {
-            border-color: #667eea;
-            color: #667eea;
+            border-color: var(--primary);
+            background: var(--bg-primary);
         }
+        
         .filter-btn.active {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: var(--primary);
             color: white;
-            border-color: #667eea;
+            border-color: var(--primary);
         }
         
         /* 控制按钮 */
         .controls {
             display: flex;
-            gap: 10px;
-            margin-bottom: 20px;
+            gap: 16px;
+            margin-bottom: 32px;
+            margin-top: 28px;
             flex-wrap: wrap;
         }
+        
         .btn {
-            padding: 12px 24px;
+            padding: 12px 28px;
             border: none;
-            border-radius: 8px;
-            font-size: 14px;
+            border-radius: 12px;
+            font-size: 15px;
             font-weight: 600;
             cursor: pointer;
-            transition: all 0.3s;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
         }
+        
         .btn-primary {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: var(--primary);
             color: white;
         }
-        .btn-danger { background: #dc3545; color: white; }
-        .btn-success { background: #28a745; color: white; }
-        .btn-secondary { background: #6c757d; color: white; }
-        .btn:hover { transform: translateY(-2px); box-shadow: 0 5px 20px rgba(0,0,0,0.2); }
-        .btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+        
+        .btn-primary:hover:not(:disabled) {
+            background: var(--primary-dark);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(0, 113, 227, 0.3);
+        }
+        
+        .btn-danger {
+            background: var(--danger);
+            color: white;
+        }
+        
+        .btn-danger:hover:not(:disabled) {
+            background: #e6342a;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(255, 59, 48, 0.3);
+        }
+        
+        .btn-success {
+            background: var(--success);
+            color: white;
+        }
+        
+        .btn-success:hover:not(:disabled) {
+            background: #2fb44d;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(52, 199, 89, 0.3);
+        }
+        
+        .btn-secondary {
+            background: var(--bg-primary);
+            color: var(--text-primary);
+        }
+        
+        .btn-secondary:hover:not(:disabled) {
+            background: var(--border);
+        }
+        
+        .btn:active:not(:disabled) {
+            transform: translateY(0);
+        }
+        
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
         
         /* 设置表单 */
         .form-row {
             display: flex;
             gap: 20px;
-            margin-bottom: 15px;
-            align-items: center;
+            margin-bottom: 20px;
+            align-items: flex-end;
             flex-wrap: wrap;
         }
+        
         .form-group {
             flex: 1;
             min-width: 200px;
         }
+        
         .form-group label {
             display: block;
-            margin-bottom: 5px;
-            color: #666;
+            margin-bottom: 8px;
+            color: var(--text-secondary);
             font-size: 14px;
+            font-weight: 500;
         }
+        
         .form-group input, .form-group select {
             width: 100%;
-            padding: 10px 15px;
-            border: 2px solid #e0e0e0;
-            border-radius: 8px;
-            font-size: 14px;
+            padding: 12px 16px;
+            border: 2px solid var(--border);
+            border-radius: 10px;
+            font-size: 15px;
+            font-family: inherit;
+            transition: all 0.2s;
+            background: var(--bg-secondary);
         }
-        .form-group input:focus {
+        
+        .form-group input:focus, .form-group select:focus {
             outline: none;
-            border-color: #667eea;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 4px rgba(0, 113, 227, 0.1);
         }
         
         /* 订单列表 */
         .order-list {
-            max-height: 500px;
+            max-height: 600px;
             overflow-y: auto;
+            border-radius: 12px;
+            border: 1px solid var(--border);
         }
+        
         .order-item {
             display: flex;
             align-items: center;
-            padding: 15px;
-            border-bottom: 1px solid #eee;
-            gap: 15px;
+            padding: 24px;
+            border-bottom: 1px solid var(--border);
+            gap: 20px;
+            transition: all 0.2s;
+            background: var(--bg-secondary);
         }
-        .order-item:hover { background: #f8f9fa; }
-        .order-info { flex: 1; }
+        
+        .order-item:last-child {
+            border-bottom: none;
+        }
+        
+        .order-item:hover {
+            background: var(--bg-primary);
+        }
+        
+        .order-info {
+            flex: 1;
+            min-width: 0;
+        }
+        
         .order-number {
             font-weight: 600;
-            color: #333;
-            font-size: 14px;
+            color: var(--text-primary);
+            font-size: 15px;
+            margin-bottom: 4px;
         }
+        
         .order-product {
-            color: #666;
+            color: var(--text-secondary);
             font-size: 13px;
-            margin-top: 3px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
         }
+        
+        .order-badges {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        
         .order-status {
-            padding: 4px 12px;
+            padding: 6px 14px;
             border-radius: 20px;
             font-size: 12px;
             font-weight: 600;
+            white-space: nowrap;
         }
-        .status-PLACED { background: #e2e3e5; color: #383d41; }
-        .status-PROCESSING { background: #fff3cd; color: #856404; }
-        .status-PREPARED_FOR_SHIPMENT { background: #fff3cd; color: #856404; }
-        .status-SHIPPED { background: #d1ecf1; color: #0c5460; }
-        .status-DELIVERED { background: #d4edda; color: #155724; }
-        .status-CANCELED { background: #f8d7da; color: #721c24; }
-        .status-unknown { background: #f8f9fa; color: #666; }
+        
+        .status-PLACED { background: #e8e8ed; color: #1d1d1f; }
+        .status-PROCESSING { background: #fff4e6; color: #b45309; }
+        .status-PREPARED_FOR_SHIPMENT { background: #fff4e6; color: #b45309; }
+        .status-SHIPPED { background: #e6f2ff; color: #0055b3; }
+        .status-DELIVERED { background: #e6f7ec; color: #1b6e3d; }
+        .status-CANCELED { background: #ffe6e6; color: #c41e3a; }
+        .status-unknown { background: var(--bg-primary); color: var(--text-secondary); }
         
         .order-actions { display: flex; gap: 8px; }
         .btn-small {
@@ -669,43 +1246,133 @@ MONITOR_HTML = '''
             border: none;
             cursor: pointer;
         }
-        .btn-check { background: #17a2b8; color: white; }
-        .btn-delete { background: #dc3545; color: white; }
-        .btn-check:disabled { opacity: 0.5; }
         
-        /* 添加订单 */
+        /* 订单操作按钮 */
+        .order-actions {
+            display: flex;
+            gap: 8px;
+        }
+        
+        .btn-icon {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            border: none;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+            font-size: 14px;
+        }
+        
+        .btn-check {
+            background: #e6f2ff;
+            color: var(--primary);
+        }
+        
+        .btn-check:hover:not(:disabled) {
+            background: var(--primary);
+            color: white;
+        }
+        
+        .btn-delete {
+            background: #ffe6e6;
+            color: var(--danger);
+        }
+        
+        .btn-delete:hover {
+            background: var(--danger);
+            color: white;
+        }
+        
+        .btn-icon:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        /* 查询计数徽章 */
+        .query-count {
+            padding: 4px 10px;
+            background: var(--bg-primary);
+            border-radius: 12px;
+            font-size: 11px;
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+        
+        /* 添加订单表单 */
         .add-order-form {
             display: flex;
-            gap: 10px;
-            margin-bottom: 20px;
+            gap: 12px;
+            margin-bottom: 24px;
         }
+        
         .add-order-form input {
             flex: 1;
-            padding: 12px 15px;
-            border: 2px solid #e0e0e0;
-            border-radius: 8px;
-            font-size: 14px;
+            padding: 12px 16px;
+            border: 2px solid var(--border);
+            border-radius: 12px;
+            font-size: 15px;
+            font-family: inherit;
+            transition: all 0.2s;
+        }
+        
+        .add-order-form input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 4px rgba(0, 113, 227, 0.1);
         }
         
         /* 状态变更记录 */
         .change-log {
-            max-height: 300px;
+            max-height: 400px;
             overflow-y: auto;
+            border-radius: 12px;
         }
+        
         .change-item {
-            padding: 12px 15px;
-            border-left: 4px solid #667eea;
-            background: #f8f9fa;
-            margin-bottom: 10px;
-            border-radius: 0 8px 8px 0;
+            padding: 16px 20px;
+            border-left: 4px solid var(--primary);
+            background: var(--bg-primary);
+            margin-bottom: 12px;
+            border-radius: 0 12px 12px 0;
+            transition: all 0.2s;
         }
+        
+        .change-item:hover {
+            transform: translateX(4px);
+            box-shadow: 0 2px 8px var(--shadow);
+        }
+        
         .change-time {
             font-size: 12px;
-            color: #999;
+            color: var(--text-secondary);
+            font-weight: 500;
         }
+        
         .change-content {
-            margin-top: 5px;
+            margin-top: 8px;
             font-size: 14px;
+            color: var(--text-primary);
+        }
+        
+        /* 空状态 */
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--text-secondary);
+        }
+        
+        .empty-state-icon {
+            font-size: 64px;
+            margin-bottom: 16px;
+            opacity: 0.5;
+        }
+        
+        .empty-state-text {
+            font-size: 18px;
+            font-weight: 500;
         }
         
         /* 刷新动画 */
@@ -713,31 +1380,98 @@ MONITOR_HTML = '''
             from { transform: rotate(0deg); }
             to { transform: rotate(360deg); }
         }
+        
         .refreshing {
             animation: spin 1s linear infinite;
         }
         
-        /* 响应式 */
+        /* 淡入动画 */
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .card {
+            animation: fadeIn 0.4s ease;
+        }
+        
+        /* 响应式设计 */
         @media (max-width: 768px) {
-            .header h1 { font-size: 1.8em; }
-            .order-item { flex-wrap: wrap; }
-            .order-actions { width: 100%; margin-top: 10px; }
+            .container {
+                padding: 24px 16px;
+            }
+            
+            .page-title {
+                font-size: 32px;
+            }
+            
+            .card {
+                padding: 24px;
+            }
+            
+            .order-item {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            
+            .order-actions {
+                width: 100%;
+                justify-content: flex-end;
+            }
+            
+            .nav-links {
+                gap: 4px;
+            }
+            
+            .nav-btn {
+                padding: 6px 12px;
+                font-size: 13px;
+            }
+            
+            .status-panel {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            
+            .controls {
+                flex-direction: column;
+            }
+            
+            .btn {
+                width: 100%;
+                justify-content: center;
+            }
         }
     </style>
 </head>
 <body>
+    <!-- 顶部导航 -->
+    <nav class="top-nav">
+        <div class="nav-container">
+            <div class="logo">
+                🍎 Apple Order Monitor
+            </div>
+            <div class="nav-links">
+                <a href="/" class="nav-btn active">📊 监控面板</a>
+                <a href="/query" class="nav-btn">🔍 批量查询</a>
+                <a href="/settings" class="nav-btn">⚙️ 设置</a>
+            </div>
+        </div>
+    </nav>
+    
+    <!-- 主内容 -->
     <div class="container">
-        <div class="header">
-            <h1>🍎 苹果订单监控管理</h1>
-            <p>可视化监控你的所有订单</p>
+        <div class="page-header">
+            <h1 class="page-title">监控面板</h1>
+            <p class="page-subtitle">实时追踪你的所有订单状态</p>
         </div>
         
-        <div class="nav">
-            <a href="/" class="nav-btn">📊 监控面板</a>
-            <a href="/query" class="nav-btn">🔍 批量查询</a>
-            <a href="/settings" class="nav-btn">⚙️ 设置</a>
-        </div>
-        
+        <!-- 监控状态卡片 -->
         <div class="card">
             <div class="card-title">📈 监控状态</div>
             <div class="status-panel">
