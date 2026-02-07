@@ -100,7 +100,12 @@ class TelegramNotifier:
         """发送订单状态变更通知"""
         status = result.get('status', 'Unknown')
         status_display = self._format_status(status)
-        old_status_display = self._format_status(old_status) if old_status else '新订单'
+        
+        # 处理旧状态显示
+        if old_status is None or old_status == '-' or old_status == '':
+            old_status_display = '新订单'
+        else:
+            old_status_display = self._format_status(old_status)
         
         # 状态表情
         emoji_map = {
