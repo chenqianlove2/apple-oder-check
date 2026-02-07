@@ -865,7 +865,7 @@ MONITOR_HTML = '''
         <div class="card">
             <div class="card-title" style="display:flex;justify-content:space-between;align-items:center;">
                 <span>📜 查询历史记录</span>
-                <button class="btn btn-danger" onclick="clearAllHistory()" style="font-size:12px;padding:6px 12px;">🗑️ 清空历史</button>
+                <button class="btn btn-danger" onclick="clearAllHistory(event)" style="font-size:12px;padding:6px 12px;">🗑️ 清空历史</button>
             </div>
             <div class="history-list" id="historyList">
                 <p style="text-align:center;color:#999;padding:20px;">加载中...</p>
@@ -1265,7 +1265,7 @@ MONITOR_HTML = '''
         }
         
         // 清空所有历史记录
-        async function clearAllHistory() {
+        async function clearAllHistory(event) {
             const historyRes = await fetch('/api/monitor/history');
             const history = await historyRes.json();
             
@@ -1279,9 +1279,11 @@ MONITOR_HTML = '''
             }
             
             try {
-                const clearBtn = event.target;
-                clearBtn.disabled = true;
-                clearBtn.textContent = '清空中...';
+                const clearBtn = event ? event.target : null;
+                if (clearBtn) {
+                    clearBtn.disabled = true;
+                    clearBtn.textContent = '清空中...';
+                }
                 
                 const res = await fetch('/api/monitor/history/clear', {
                     method: 'POST'
@@ -1289,8 +1291,10 @@ MONITOR_HTML = '''
                 
                 const result = await res.json();
                 
-                clearBtn.textContent = '🗑️ 清空历史';
-                clearBtn.disabled = false;
+                if (clearBtn) {
+                    clearBtn.textContent = '🗑️ 清空历史';
+                    clearBtn.disabled = false;
+                }
                 
                 if (result.success) {
                     alert(`✅ 已清空 ${result.count} 条历史记录`);
@@ -1299,9 +1303,10 @@ MONITOR_HTML = '''
                     alert('清空失败: ' + result.message);
                 }
             } catch (e) {
-                const clearBtn = event.target;
-                clearBtn.textContent = '🗑️ 清空历史';
-                clearBtn.disabled = false;
+                if (event && event.target) {
+                    event.target.textContent = '🗑️ 清空历史';
+                    event.target.disabled = false;
+                }
                 alert('清空失败: ' + e);
             }
         }
