@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ls:*)",
+      "Bash(lsof:*)",
+      "Bash(curl:*)",
+      "Bash(source:*)",
+      "Bash(python:*)",
+      "Bash(python -c:*)",
+      "Bash(kill:*)",
+      "Bash(python3:*)",
+      "Bash(node --check:*)",
+      "Bash(xargs kill:*)"
+    ]
+  }
+}

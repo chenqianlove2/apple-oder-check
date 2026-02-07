@@ -1,0 +1,33 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.pyc
+
+# 敏感配置文件
+telegram_config.json
+monitor_config.json
+
+# 日志文件
+*.log
+
+# 订单数据（包含个人信息）
+orders.txt
+order_history.json
+
+# 备份文件
+*.bak
+*.bak2
+*.broken
+
+# macOS
+.DS_Store
+
+# IDE
+.vscode/
+.idea/
+
+# 环境变量
+.env
