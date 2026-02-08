@@ -215,23 +215,36 @@ class OrderMonitor:
             new_status = result.get('status')
             changed, old_status = self.check_status_change(url, new_status)
             
-            if changed:
-                # 更新历史
-                self.order_history[url] = {
-                    'status': new_status,
-                    'last_check': datetime.now().isoformat(),
-                    'orderNumber': result.get('orderNumber'),
-                    'productName': result.get('productName'),
-                }
-                self.save_history()
-                
+            # 判断是否首次查询
+            is_first_check = url not in self.order_history
+            
+            # 更新历史
+            self.order_history[url] = {
+                'status': new_status,
+                'last_check': datetime.now().isoformat(),
+                'orderNumber': result.get('orderNumber'),
+                'productName': result.get('productName'),
+            }
+            self.save_history()
+            
+            # 状态变更或首次查询到取消状态时发送通知
+            should_send = False
+            
+            if changed and not is_first_check:
+                # 状态变更（非首次）
+                should_send = self.should_notify(new_status, changed=True)
+            elif is_first_check and new_status in ['CANCELED', 'CANCELLED']:
+                # 首次查询就是取消状态 - 立即通知！
+                should_send = True
+                print(f"⚠️  首次查询发现订单已取消: {result.get('orderNumber')}")
+            
+            if should_send:
                 # 触发回调
                 if self.callback:
                     self.callback(result, old_status)
                 
                 # 发送通知
-                if self.should_notify(new_status, changed=True):
-                    self.send_status_notification(result, old_status)
+                self.send_status_notification(result, old_status if not is_first_check else '首次查询')
             
             time.sleep(1)  # 避免请求过快
         

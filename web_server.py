@@ -1340,12 +1340,43 @@ MONITOR_HTML = '''
             btn.innerHTML = '<span class="refreshing">🔄</span> 检查中...';
             
             try {
+                // 获取检查前的状态
+                const beforeRes = await fetch('/api/monitor/status');
+                const beforeStatus = await beforeRes.json();
+                const beforeCheckCount = beforeStatus.checkCount;
+                
+                // 触发检查
                 await fetch('/api/monitor/check', {method: 'POST'});
-                setTimeout(() => {
-                    refreshData();
-                    btn.disabled = false;
-                    btn.innerHTML = '🔄 立即检查';
-                }, 2000);
+                
+                // 轮询等待检查完成（最多等待15秒）
+                let attempts = 0;
+                const maxAttempts = 30; // 30次 * 500ms = 15秒
+                
+                const pollForUpdate = async () => {
+                    attempts++;
+                    const statusRes = await fetch('/api/monitor/status');
+                    const status = await statusRes.json();
+                    
+                    // 如果 checkCount 增加了，说明检查完成
+                    if (status.checkCount > beforeCheckCount || attempts >= maxAttempts) {
+                        await refreshData();
+                        btn.disabled = false;
+                        btn.innerHTML = '🔄 立即检查';
+                        
+                        if (attempts >= maxAttempts) {
+                            console.log('检查超时，但仍刷新了数据');
+                        } else {
+                            console.log(`检查完成，用时约 ${attempts * 0.5} 秒`);
+                        }
+                    } else {
+                        // 继续等待
+                        setTimeout(pollForUpdate, 500);
+                    }
+                };
+                
+                // 开始轮询
+                setTimeout(pollForUpdate, 500);
+                
             } catch (e) {
                 alert('检查失败: ' + e);
                 btn.disabled = false;
@@ -1713,26 +1744,59 @@ SETTINGS_HTML = '''
         </div>
         
         <div class="card">
-            <div class="card-title">📱 Telegram 通知设置</div>
+            <div class="card-title">
+                📱 Telegram 通知设置
+                <button class="btn btn-success" onclick="showAddBotModal()" style="margin-left:auto;padding:8px 16px;font-size:14px;">
+                    ➕ 添加机器人
+                </button>
+            </div>
+            
+            <div id="botsList"></div>
+            
+            <div class="form-hint" style="margin-top:15px;color:#666;">
+                💡 提示：可以添加多个 Telegram 机器人，订单状态变更时会同时通知所有启用的机器人
+            </div>
+        </div>
+    </div>
+
+    <!-- 添加/编辑机器人弹窗 -->
+    <div id="botModal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:1000;padding:20px;overflow-y:auto;">
+        <div style="max-width:600px;margin:50px auto;background:white;border-radius:12px;padding:30px;box-shadow:0 10px 40px rgba(0,0,0,0.2);">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+                <h2 style="margin:0;" id="modalTitle">➕ 添加 Telegram 机器人</h2>
+                <button onclick="closeBotModal()" style="background:none;border:none;font-size:24px;cursor:pointer;color:#999;">&times;</button>
+            </div>
+            
+            <div class="form-group">
+                <label>机器人名称</label>
+                <input type="text" id="modalBotName" placeholder="例如：主通知机器人">
+                <div class="form-hint">便于识别，可随意命名</div>
+            </div>
             
             <div class="form-group">
                 <label>Bot Token</label>
-                <input type="text" id="botToken" placeholder="123456789:ABCdefGHI...">
+                <input type="text" id="modalBotToken" placeholder="123456789:ABCdefGHI...">
                 <div class="form-hint">从 @BotFather 获取</div>
             </div>
             
             <div class="form-group">
                 <label>Chat ID</label>
-                <input type="text" id="chatId" placeholder="12345678">
+                <input type="text" id="modalChatId" placeholder="12345678">
                 <div class="form-hint">从 @userinfobot 获取</div>
             </div>
             
-            <button class="btn btn-primary" onclick="saveTelegram()">💾 保存 Telegram 设置</button>
-            <button class="btn btn-primary" onclick="testTelegram()" style="margin-left:10px;background:#17a2b8;">🧪 测试连接</button>
+            <div style="display:flex;gap:10px;margin-top:20px;">
+                <button class="btn btn-primary" onclick="saveBotFromModal()">💾 保存</button>
+                <button class="btn btn-primary" onclick="testBotFromModal()" style="background:#17a2b8;">🧪 测试连接</button>
+                <button class="btn btn-secondary" onclick="closeBotModal()">取消</button>
+            </div>
         </div>
     </div>
 
     <script>
+        let currentEditBotId = null;
+        let botsData = [];
+        
         // 加载当前设置
         async function loadSettings() {
             try {
@@ -1755,15 +1819,212 @@ SETTINGS_HTML = '''
                 document.getElementById('currentConfig').innerHTML = '<span style="color:#dc3545;">加载配置失败</span>';
             }
             
-            // 加载 Telegram 配置
+            // 加载 Telegram 机器人列表
+            await loadBots();
+        }
+        
+        // 加载机器人列表
+        async function loadBots() {
             try {
-                const res = await fetch('/api/telegram/config');
-                const config = await res.json();
-                
-                document.getElementById('botToken').value = config.bot_token || '';
-                document.getElementById('chatId').value = config.chat_id || '';
+                const res = await fetch('/api/telegram/bots');
+                const data = await res.json();
+                botsData = data.bots || [];
+                renderBots();
             } catch (e) {
-                console.error('加载 Telegram 配置失败:', e);
+                console.error('加载机器人列表失败:', e);
+            }
+        }
+        
+        // 渲染机器人列表
+        function renderBots() {
+            const container = document.getElementById('botsList');
+            
+            if (botsData.length === 0) {
+                container.innerHTML = `
+                    <div style="text-align:center;padding:40px;color:#999;">
+                        <div style="font-size:48px;">🤖</div>
+                        <div style="margin-top:10px;">还没有添加机器人</div>
+                        <div style="margin-top:5px;font-size:14px;">点击上方"添加机器人"按钮开始配置</div>
+                    </div>
+                `;
+                return;
+            }
+            
+            container.innerHTML = botsData.map(bot => `
+                <div style="border:2px solid #e0e0e0;border-radius:8px;padding:15px;margin-bottom:10px;display:flex;align-items:center;gap:15px;">
+                    <div style="flex:1;">
+                        <div style="font-weight:600;font-size:16px;margin-bottom:5px;">
+                            🤖 ${bot.name}
+                            ${bot.enabled ? '<span style="color:#28a745;font-size:12px;">● 已启用</span>' : '<span style="color:#999;font-size:12px;">○ 已禁用</span>'}
+                        </div>
+                        <div style="font-size:13px;color:#666;">
+                            Token: ${bot.bot_token.substring(0, 20)}... | Chat ID: ${bot.chat_id}
+                        </div>
+                    </div>
+                    <div style="display:flex;gap:8px;">
+                        <button class="btn btn-secondary" onclick="toggleBot('${bot.id}', ${!bot.enabled})" style="padding:6px 12px;font-size:13px;">
+                            ${bot.enabled ? '禁用' : '启用'}
+                        </button>
+                        <button class="btn btn-primary" onclick="testBot('${bot.id}')" style="padding:6px 12px;font-size:13px;background:#17a2b8;">
+                            🧪 测试
+                        </button>
+                        <button class="btn btn-primary" onclick="editBot('${bot.id}')" style="padding:6px 12px;font-size:13px;background:#ffc107;color:#333;">
+                            ✏️ 编辑
+                        </button>
+                        <button class="btn btn-secondary" onclick="deleteBot('${bot.id}')" style="padding:6px 12px;font-size:13px;background:#dc3545;color:white;">
+                            🗑️ 删除
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        }
+        
+        // 显示添加机器人弹窗
+        function showAddBotModal() {
+            currentEditBotId = null;
+            document.getElementById('modalTitle').textContent = '➕ 添加 Telegram 机器人';
+            document.getElementById('modalBotName').value = '';
+            document.getElementById('modalBotToken').value = '';
+            document.getElementById('modalChatId').value = '';
+            document.getElementById('botModal').style.display = 'block';
+        }
+        
+        // 显示编辑机器人弹窗
+        function editBot(botId) {
+            const bot = botsData.find(b => b.id === botId);
+            if (!bot) return;
+            
+            currentEditBotId = botId;
+            document.getElementById('modalTitle').textContent = '✏️ 编辑 Telegram 机器人';
+            document.getElementById('modalBotName').value = bot.name;
+            document.getElementById('modalBotToken').value = bot.bot_token;
+            document.getElementById('modalChatId').value = bot.chat_id;
+            document.getElementById('botModal').style.display = 'block';
+        }
+        
+        // 关闭弹窗
+        function closeBotModal() {
+            document.getElementById('botModal').style.display = 'none';
+        }
+        
+        // 保存机器人
+        async function saveBotFromModal() {
+            const name = document.getElementById('modalBotName').value.trim();
+            const botToken = document.getElementById('modalBotToken').value.trim();
+            const chatId = document.getElementById('modalChatId').value.trim();
+            
+            if (!name || !botToken || !chatId) {
+                alert('请填写完整信息');
+                return;
+            }
+            
+            try {
+                const url = currentEditBotId ? '/api/telegram/bots/update' : '/api/telegram/bots/add';
+                const data = currentEditBotId ? 
+                    { bot_id: currentEditBotId, name, bot_token: botToken, chat_id: chatId } :
+                    { name, bot_token: botToken, chat_id: chatId };
+                
+                const res = await fetch(url, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(data)
+                });
+                
+                const result = await res.json();
+                if (result.success) {
+                    showSuccess(currentEditBotId ? '✅ 机器人已更新' : '✅ 机器人已添加');
+                    closeBotModal();
+                    await loadBots();
+                } else {
+                    alert('保存失败: ' + result.message);
+                }
+            } catch (e) {
+                alert('保存失败: ' + e);
+            }
+        }
+        
+        // 从弹窗测试机器人
+        async function testBotFromModal() {
+            const botToken = document.getElementById('modalBotToken').value.trim();
+            const chatId = document.getElementById('modalChatId').value.trim();
+            
+            if (!botToken || !chatId) {
+                alert('请先填写 Bot Token 和 Chat ID');
+                return;
+            }
+            
+            try {
+                const res = await fetch('/api/telegram/test', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ bot_token: botToken, chat_id: chatId })
+                });
+                const data = await res.json();
+                alert(data.success ? '✅ ' + data.message : '❌ ' + data.message);
+            } catch (e) {
+                alert('测试失败: ' + e);
+            }
+        }
+        
+        // 测试已保存的机器人
+        async function testBot(botId) {
+            const bot = botsData.find(b => b.id === botId);
+            if (!bot) return;
+            
+            try {
+                const res = await fetch('/api/telegram/test', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ bot_token: bot.bot_token, chat_id: bot.chat_id })
+                });
+                const data = await res.json();
+                alert(data.success ? '✅ ' + data.message : '❌ ' + data.message);
+            } catch (e) {
+                alert('测试失败: ' + e);
+            }
+        }
+        
+        // 切换机器人启用状态
+        async function toggleBot(botId, enabled) {
+            try {
+                const res = await fetch('/api/telegram/bots/update', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ bot_id: botId, enabled })
+                });
+                
+                const result = await res.json();
+                if (result.success) {
+                    showSuccess(enabled ? '✅ 已启用' : '✅ 已禁用');
+                    await loadBots();
+                } else {
+                    alert('操作失败: ' + result.message);
+                }
+            } catch (e) {
+                alert('操作失败: ' + e);
+            }
+        }
+        
+        // 删除机器人
+        async function deleteBot(botId) {
+            if (!confirm('确定要删除这个机器人吗？')) return;
+            
+            try {
+                const res = await fetch('/api/telegram/bots/delete', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ bot_id: botId })
+                });
+                
+                const result = await res.json();
+                if (result.success) {
+                    showSuccess('✅ 已删除');
+                    await loadBots();
+                } else {
+                    alert('删除失败: ' + result.message);
+                }
+            } catch (e) {
+                alert('删除失败: ' + e);
             }
         }
         
@@ -1784,36 +2045,6 @@ SETTINGS_HTML = '''
                 showSuccess('✅ 监控设置已保存');
             } catch (e) {
                 alert('保存失败: ' + e);
-            }
-        }
-        
-        // 保存 Telegram 设置
-        async function saveTelegram() {
-            const data = {
-                bot_token: document.getElementById('botToken').value,
-                chat_id: document.getElementById('chatId').value
-            };
-            
-            try {
-                await fetch('/api/telegram/config', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify(data)
-                });
-                showSuccess('✅ Telegram 设置已保存');
-            } catch (e) {
-                alert('保存失败: ' + e);
-            }
-        }
-        
-        // 测试 Telegram
-        async function testTelegram() {
-            try {
-                const res = await fetch('/api/telegram/test', {method: 'POST'});
-                const data = await res.json();
-                alert(data.success ? '✅ ' + data.message : '❌ ' + data.message);
-            } catch (e) {
-                alert('测试失败: ' + e);
             }
         }
         
@@ -1874,6 +2105,9 @@ class RequestHandler(BaseHTTPRequestHandler):
             self.send_json(get_monitor().config)
         elif path == '/api/telegram/config':
             self.send_json(get_notifier().get_config())
+        elif path == '/api/telegram/bots':
+            # 获取机器人列表
+            self.send_json({'bots': get_notifier().get_bots()})
         else:
             self.send_response(404)
             self.end_headers()
@@ -1970,7 +2204,8 @@ class RequestHandler(BaseHTTPRequestHandler):
                                 # 检查是否是首次查询且状态为 CANCELED
                                 if is_new and result.get('status') == 'CANCELED':
                                     print(f"🚨 新订单 {result.get('orderNumber')} 首次查询即为 CANCELED，发送通知", flush=True)
-                                    if notifier.enabled:
+                                    enabled_bots = notifier.get_enabled_bots()
+                                    if enabled_bots:
                                         try:
                                             notifier.send_order_notification(result, None)
                                             print(f"✅ 通知已发送", flush=True)
@@ -2008,8 +2243,37 @@ class RequestHandler(BaseHTTPRequestHandler):
             notifier = get_notifier()
             notifier.set_config(data.get('bot_token'), data.get('chat_id'))
             self.send_json({'success': True})
+        elif path == '/api/telegram/bots/add':
+            # 添加新机器人
+            notifier = get_notifier()
+            success = notifier.add_bot(
+                data.get('name'),
+                data.get('bot_token'),
+                data.get('chat_id')
+            )
+            self.send_json({'success': success, 'message': '添加成功' if success else '添加失败'})
+        elif path == '/api/telegram/bots/update':
+            # 更新机器人
+            notifier = get_notifier()
+            success = notifier.update_bot(
+                data.get('bot_id'),
+                name=data.get('name'),
+                bot_token=data.get('bot_token'),
+                chat_id=data.get('chat_id'),
+                enabled=data.get('enabled')
+            )
+            self.send_json({'success': success, 'message': '更新成功' if success else '更新失败'})
+        elif path == '/api/telegram/bots/delete':
+            # 删除机器人
+            notifier = get_notifier()
+            success = notifier.delete_bot(data.get('bot_id'))
+            self.send_json({'success': success, 'message': '删除成功' if success else '删除失败'})
         elif path == '/api/telegram/test':
-            success, msg = get_notifier().test_connection()
+            # 测试连接（支持临时测试）
+            notifier = get_notifier()
+            bot_token = data.get('bot_token')
+            chat_id = data.get('chat_id')
+            success, msg = notifier.test_connection(bot_token, chat_id)
             self.send_json({'success': success, 'message': msg})
         elif path == '/api/monitor/history/clear':
             # 清空所有历史记录
@@ -2098,8 +2362,8 @@ class RequestHandler(BaseHTTPRequestHandler):
 
 
 def main():
-    port = 8080  # 使用 8080 端口
-    server = HTTPServer(('0.0.0.0', port), RequestHandler)
+    port = 8846  # 使用 8846 端口（避免与 1Panel 冲突）
+    server = HTTPServer(('127.0.0.1', port), RequestHandler)  # 只监听本地，通过反向代理访问
     
     # 获取本机 IP
     import socket

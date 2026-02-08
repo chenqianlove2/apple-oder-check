@@ -73,6 +73,8 @@ class OrderMonitor:
                     data = json.load(f)
                     self.results = data.get('results', {})
                     self.status_changes = data.get('changes', [])
+                    self.last_check_time = data.get('last_check_time', None)
+                    self.check_count = data.get('check_count', 0)
             except Exception as e:
                 print(f"加载历史失败: {e}")
     
@@ -82,6 +84,8 @@ class OrderMonitor:
                 json.dump({
                     'results': self.results,
                     'changes': self.status_changes[-100:],  # 只保留最近100条
+                    'last_check_time': self.last_check_time,
+                    'check_count': self.check_count,
                     'last_save': datetime.now().isoformat()
                 }, f, indent=2)
             return True
@@ -299,11 +303,15 @@ class OrderMonitor:
                 old_status = self.results[url].get('status')
                 new_status = result.get('status')
                 
+                print(f"📊 检查订单: {result.get('orderNumber')}, 旧状态={old_status}, 新状态={new_status}, 查询成功={result.get('success')}")
+                
                 # 只有在查询成功且新旧状态都是有效状态时，才判断状态变化
                 # 过滤掉 '-', None, '' 等无效状态
                 valid_statuses = ['PLACED', 'PROCESSING', 'PREPARED_FOR_SHIPMENT', 'SHIPPED', 'DELIVERED', 'CANCELED']
                 old_valid = old_status in valid_statuses
                 new_valid = new_status in valid_statuses
+                
+                print(f"   旧状态有效={old_valid}, 新状态有效={new_valid}, 状态是否变化={old_status != new_status}")
                 
                 # 只要状态发生变化就发送通知（但两个状态都必须是有效的）
                 if (old_status != new_status and 
@@ -324,7 +332,8 @@ class OrderMonitor:
                     # 发送 Telegram 通知
                     try:
                         notifier = get_notifier()
-                        if notifier.enabled:
+                        enabled_bots = notifier.get_enabled_bots()
+                        if enabled_bots:
                             status_emoji = {
                                 'CANCELED': '🚨',
                                 'SHIPPED': '📦',
@@ -334,19 +343,25 @@ class OrderMonitor:
                                 'PLACED': '📝'
                             }
                             emoji = status_emoji.get(new_status, '📢')
-                            print(f"{emoji} 订单 {result.get('orderNumber')} 状态变更: {old_status} → {new_status}，发送通知")
+                            print(f"{emoji} 订单 {result.get('orderNumber')} 状态变更: {old_status} → {new_status}，发送通知到 {len(enabled_bots)} 个机器人")
                             notifier.send_order_notification(result, old_status)
+                        else:
+                            print(f"⚠️ 没有启用的 Telegram 机器人，跳过通知")
                     except Exception as e:
                         print(f"发送通知失败: {e}")
             else:
                 # 第一次查询该订单
+                print(f"🆕 首次查询订单: {result.get('orderNumber')}, 状态={result.get('status')}, 查询成功={result.get('success')}")
                 # 只有首次查询就是 CANCELED 状态时才发送通知
                 if result.get('success') and result.get('status') == 'CANCELED':
                     print(f"🚨 首次查询订单 {result.get('orderNumber')}，状态: CANCELED，发送通知")
                     try:
                         notifier = get_notifier()
-                        if notifier.enabled:
+                        enabled_bots = notifier.get_enabled_bots()
+                        if enabled_bots:
                             notifier.send_order_notification(result, None)
+                        else:
+                            print(f"⚠️ 没有启用的 Telegram 机器人，跳过通知")
                     except Exception as e:
                         print(f"发送通知失败: {e}")
                 else:

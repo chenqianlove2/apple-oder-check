@@ -10,7 +10,8 @@
       "Bash(kill:*)",
       "Bash(python3:*)",
       "Bash(node --check:*)",
-      "Bash(xargs kill:*)"
+      "Bash(xargs kill:*)",
+      "Bash(open \"file:///Users/mc/.claude/usage-data/report.html\")"
     ]
   }
 }
