@@ -378,7 +378,41 @@ class OrderMonitor:
                     # 其他状态的首次查询不发送通知
                     print(f"📥 首次查询订单 {result.get('orderNumber')}，状态: {result.get('status')}（不发送通知）")
             
-            self.results[url] = result
+            # 只有查询成功且信息完整时才更新历史记录
+            # 避免查询失败的结果覆盖之前的有效数据
+            if result.get('success'):
+                order_number = result.get('orderNumber', '-')
+                status = result.get('status', '-')
+                
+                # 检查是否获取到有效信息
+                if order_number != '-' and status != '-':
+                    # 信息完整,更新结果
+                    self.results[url] = result
+                    print(f"✅ 更新订单记录: {order_number}, 状态={status}")
+                else:
+                    # 信息不完整,保留旧记录(如果有的话)
+                    if url in self.results:
+                        print(f"⚠️ 查询结果不完整,保留旧记录: {self.results[url].get('orderNumber')}")
+                        # 只更新查询次数和时间戳
+                        self.results[url]['queryCount'] = result.get('queryCount', 1)
+                        self.results[url]['timestamp'] = result.get('timestamp')
+                    else:
+                        # 首次查询就不完整,仍然保存,但标记为失败
+                        result['success'] = False
+                        self.results[url] = result
+                        print(f"⚠️ 首次查询结果不完整: {url}")
+            else:
+                # 查询失败,保留旧记录(如果有的话)
+                if url in self.results:
+                    print(f"❌ 查询失败,保留旧记录: {self.results[url].get('orderNumber')}")
+                    # 只更新查询次数和时间戳
+                    self.results[url]['queryCount'] = result.get('queryCount', 1)
+                    self.results[url]['timestamp'] = result.get('timestamp')
+                else:
+                    # 首次查询就失败,保存失败记录
+                    self.results[url] = result
+                    print(f"❌ 首次查询失败: {url}")
+            
             return result
         
         # 使用线程池查询需要检查的订单
