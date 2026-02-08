@@ -148,6 +148,16 @@ class OrderMonitor:
             # 从结果中删除
             if url in self.results:
                 del self.results[url]
+                print(f"🗑️ 删除订单历史记录: {url}")
+            
+            # 同时从状态变更记录中删除相关记录
+            self.status_changes = [
+                change for change in self.status_changes 
+                if change.get('url') != url
+            ]
+            
+            # 保存历史记录(持久化删除操作)
+            self.save_history()
             
             return True, "删除成功"
         except Exception as e:
